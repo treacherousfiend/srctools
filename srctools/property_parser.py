@@ -792,6 +792,13 @@ class Property:
 
     append = __iadd__
 
+    def remove(self, prop: 'Property'):
+        """Remove this child from our block."""
+        if self.has_children():
+            self._child.remove(prop)
+        else:
+            raise IndexError("Can't remove from a Property without children!")
+
     def merge_children(self, *names: str):
         """Merge together any children of ours with the given names.
 
