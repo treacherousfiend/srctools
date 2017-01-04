@@ -229,7 +229,7 @@ class Property:
         This is produced from Property.parse() calls.
     """
     # Helps decrease memory footprint with lots of Property values.
-    __slots__ = ('_folded_name', 'real_name', 'value')
+    __slots__ = ('_folded_name', 'real_name', '_child')
 
     def __init__(
             self: 'Property',
@@ -240,7 +240,7 @@ class Property:
 
         """
         self.real_name = name  # type: Optional[str]
-        self.value = value  # type: _Prop_Value
+        self._child = value  # type: _Prop_Value
         self._folded_name = (
             None if name is None
             else name.casefold()
@@ -263,13 +263,25 @@ class Property:
         else:
             self._folded_name = new_name.casefold()
 
+    @property
+    def value(self):
+        if self.has_children():
+            raise Exception('Accessed child of "{}"!!'.format(self.real_name))
+        return self._child
+
+    @value.setter
+    def value(self, value):
+        if self.has_children():
+            raise Exception('Setted child of "{}"}!!'.format(self.real_name))
+        self._child = value
+
     def edit(self, name=None, value=None):
         """Simultaneously modify the name and value."""
         if name is not None:
             self.real_name = name
             self._folded_name = name.casefold()
         if value is not None:
-            self.value = value
+            self._child = value
 
     @staticmethod
     def parse(file_contents, filename='') -> "Property":
@@ -387,7 +399,7 @@ class Property:
                 # Move back a block
                 open_properties.pop()
                 try:
-                    cur_block = open_properties[-1].value
+                    cur_block = open_properties[-1]._child
                 except IndexError:
                     # No open blocks!
                     raise KeyValError(
@@ -456,7 +468,7 @@ class Property:
         - This prefers keys located closer to the end of the value list.
         """
         key = key.casefold()
-        for prop in reversed(self.value):  # type: Property
+        for prop in reversed(self._child):  # type: Property
             if prop._folded_name == key:
                 return prop
         if def_ is _NO_KEY_FOUND:
@@ -473,9 +485,9 @@ class Property:
         - This prefers keys located closer to the end of the value list.
         """
         key = key.casefold()
-        for prop in reversed(self.value):  # type: Property
+        for prop in reversed(self._child):  # type: Property
             if prop._folded_name == key:
-                return prop.value
+                return prop._child
         if def_ is _NO_KEY_FOUND:
             raise NoKeyError(key)
         else:
@@ -547,7 +559,7 @@ class Property:
                 # We can't use find_key() here because we also
                 # need to check that the property has chilren to search
                 # through
-                for prop in reversed(self.value):
+                for prop in reversed(self._child):
                     if (prop.name is not None and
                             prop.name == folded_key and
                             prop.has_children()):
@@ -560,9 +572,9 @@ class Property:
                     current_prop = new_prop
             path = path[-1]
         try:
-            current_prop.find_key(path).value = value
+            current_prop.find_key(path)._child = value
         except NoKeyError:
-            current_prop.value.append(Property(path, value))
+            current_prop._child.append(Property(path, value))
 
     def copy(self):
         """Deep copy this Property tree and return it."""
@@ -573,11 +585,11 @@ class Property:
                 [
                     child.copy()
                     for child in
-                    self.value
+                    self._child
                 ]
             )
         else:
-            return Property(self.real_name, self.value)
+            return Property(self.real_name, self._child)
 
     def as_dict(self):
         """Convert this property tree into a tree of dictionaries.
@@ -587,7 +599,7 @@ class Property:
         if self.has_children():
             return {item._folded_name: item.as_dict() for item in self}
         else:
-            return self.value
+            return self._child
 
     def __eq__(self, other):
         """Compare two items and determine if they are equal.
@@ -595,66 +607,66 @@ class Property:
         This ignores names.
         """
         if isinstance(other, Property):
-            return self.value == other.value
+            return self._child == other._child
         else:
-            return self.value == other  # Just compare values
+            return self._child == other  # Just compare values
 
     def __ne__(self, other):
         """Not-Equal To comparison. This ignores names.
         """
         if isinstance(other, Property):
-            return self.value != other.value
+            return self._child != other._child
         else:
-            return self.value != other # Just compare values
+            return self._child != other # Just compare values
 
     def __lt__(self, other):
         """Less-Than comparison. This ignores names.
         """
         if isinstance(other, Property):
-            return self.value < other.value
+            return self._child < other._child
         else:
-            return self.value < other
+            return self._child < other
 
     def __gt__(self, other):
         "Greater-Than comparison. This ignores names."
         if isinstance(other, Property):
-            return self.value > other.value
+            return self._child > other._child
         else:
-            return self.value > other
+            return self._child > other
 
     def __le__(self, other):
         "Less-Than or Equal To comparison. This ignores names."
         if isinstance(other, Property):
-            return self.value <= other.value
+            return self._child <= other._child
         else:
-            return self.value <= other
+            return self._child <= other
 
     def __ge__(self, other):
         "Greater-Than or Equal To comparison. This ignores names."
         if isinstance(other, Property):
-            return self.value >= other.value
+            return self._child >= other._child
         else:
-            return self.value >= other
+            return self._child >= other
 
     def __len__(self):
         """Determine the number of child properties."""
         if self.has_children():
-            return len(self.value)
+            return len(self._child)
         raise ValueError("{!r} has no children!".format(self))
 
     def __bool__(self):
         """Properties are true if we have children, or have a value."""
         if self.has_children():
-            return len(self.value) > 0
+            return len(self._child) > 0
         else:
-            return bool(self.value)
+            return bool(self._child)
 
     def __iter__(self) -> Iterator['Property']:
         """Iterate through the value list.
 
         """
         if self.has_children():
-            return iter(self.value)
+            return iter(self._child)
         else:
             raise ValueError(
                 "Can't iterate through {!r} without children!".format(self)
@@ -664,7 +676,7 @@ class Property:
         """Check to see if a name is present in the children."""
         key = key.casefold()
         if self.has_children():
-            for prop in self.value:  # type: Property
+            for prop in self._child:  # type: Property
                 if prop._folded_name == key:
                     return True
             return False
@@ -689,7 +701,7 @@ class Property:
         """
         if self.has_children():
             if isinstance(index, int) or isinstance(index, slice):
-                return self.value[index]
+                return self._child[index]
             else:
                 if isinstance(index, tuple):
                     # With default value
@@ -717,7 +729,7 @@ class Property:
         """
         if self.has_children():
             if isinstance(index, int) or isinstance(index, slice):
-                self.value[index] = value
+                self._child[index] = value
             else:
                 self.set_key(index, value)
         else:
@@ -731,10 +743,10 @@ class Property:
         """
         if self.has_children():
             if isinstance(index, int):
-                del self.value[index]
+                del self._child[index]
             else:
                 try:
-                    self.value.remove(self.find_key(index))
+                    self._child.remove(self.find_key(index))
                 except NoKeyError as no_key:
                     raise IndexError(no_key) from no_key
         else:
@@ -750,13 +762,13 @@ class Property:
             copy = self.copy()
             if isinstance(other, Property):
                 if other._folded_name is None:
-                    copy.value.extend(other.value)
+                    copy._child.extend(other._child)
                 else:
                     # We want to add the other property tree to our
                     # own, not its values.
-                    copy.value.append(other)
+                    copy._child.append(other)
             else: # Assume a sequence.
-                copy.value += other # Add the values to ours.
+                copy._child += other # Add the values to ours.
             return copy
         else:
             return NotImplemented
@@ -769,11 +781,11 @@ class Property:
         if self.has_children():
             if isinstance(other, Property):
                 if other._folded_name is None:
-                    self.value.extend(other.value)
+                    self._child.extend(other._child)
                 else:
-                    self.value.append(other)
+                    self._child.append(other)
             else:
-                self.value += other
+                self._child += other
             return self
         else:
             return NotImplemented
@@ -794,29 +806,29 @@ class Property:
             names
         }
         if self.has_children():
-            for item in self.value[:]:  # type: Property
+            for item in self._child[:]:  # type: Property
                 if item._folded_name in folded_names:
-                    merge[item._folded_name].value.extend(item.value)
+                    merge[item._folded_name]._child.extend(item._child)
                 else:
                     new_list.append(item)
         for prop_name in names:
             prop = merge[prop_name.casefold()]
-            if len(prop.value) > 0:
+            if len(prop._child) > 0:
                 new_list.append(prop)
 
-        self.value = new_list
+        self._child = new_list
 
     def ensure_exists(self, key):
         """Ensure a Property group exists with this name."""
         if key not in self:
-            self.value.append(Property(key, []))
+            self._child.append(Property(key, []))
 
     def has_children(self):
         """Does this have child properties?"""
-        return isinstance(self.value, list)
+        return isinstance(self._child, list)
 
     def __repr__(self):
-        return 'Property(' + repr(self.real_name) + ', ' + repr(self.value) + ')'
+        return 'Property(' + repr(self.real_name) + ', ' + repr(self._child) + ')'
 
     def __str__(self):
         return ''.join(self.export())
@@ -826,24 +838,24 @@ class Property:
 
         Recursively calls itself for all child properties.
         """
-        if isinstance(self.value, list):
+        if isinstance(self._child, list):
             if self.name is None:
                 # If the name is None, we just output the chilren
                 # without a "Name" { } surround. These Property
                 # objects represent the root.
-                for prop in self.value:
+                for prop in self._child:
                     yield from prop.export()
             else:
                 yield '"' + self.real_name + '"\n'
                 yield '\t{\n'
                 yield from (
                     '\t' + line
-                    for prop in self.value
+                    for prop in self._child
                     for line in prop.export()
                 )
                 yield '\t}\n'
         else:
             yield '"{}" "{}"\n'.format(
                 self.real_name,
-                self.value.replace('"', '\\"')
+                self._child.replace('"', '\\"')
             )
