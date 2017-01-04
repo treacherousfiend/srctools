@@ -271,8 +271,8 @@ class Property:
 
     @value.setter
     def value(self, value):
-        if self.has_children():
-            raise Exception('Setted child of "{}"}!!'.format(self.real_name))
+        if self.has_children() and isinstance(value, (Property, list)):
+            raise Exception('Setted child of "{}" to {!r}!!'.format(self.real_name, value))
         self._child = value
 
     def edit(self, name=None, value=None):
