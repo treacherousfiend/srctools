@@ -36,7 +36,7 @@ def parse_vec_str(val: Union[str, 'Vec'], x=0.0, y=0.0, z=0.0) -> Tuple[float, f
 
      If the 'string' is actually a Vec, the values will be returned.
      """
-    if isinstance(val, Vec):
+    if isinstance(val, Py_Vec):
         return val.x, val.y, val.z
 
     try:
@@ -68,8 +68,8 @@ def __{func}__(self, other: Union['Vec', tuple, float]):
 
     This additionally works on scalars (adds to all axes).
     """
-    if isinstance(other, Vec):
-        return Vec(
+    if isinstance(other, Py_Vec):
+        return Py_Vec(
             self.x {op} other.x,
             self.y {op} other.y,
             self.z {op} other.z,
@@ -86,15 +86,15 @@ def __{func}__(self, other: Union['Vec', tuple, float]):
     except TypeError:
         return NotImplemented
     else:
-        return Vec(x, y, z)
+        return Py_Vec(x, y, z)
 
 def __r{func}__(self, other: Union['Vec', tuple, float]):
     """{op} operation with reversed operands.
 
     This additionally works on scalars (adds to all axes).
     """
-    if isinstance(other, Vec):
-        return Vec(
+    if isinstance(other, Py_Vec):
+        return Py_Vec(
             other.x {op} self.x,
             other.y {op} self.y,
             other.z {op} self.z,
@@ -111,14 +111,14 @@ def __r{func}__(self, other: Union['Vec', tuple, float]):
     except TypeError:
         return NotImplemented
     else:
-        return Vec(x, y, z)
+        return Py_Vec(x, y, z)
 
 def __i{func}__(self, other: Union['Vec', tuple, float]):
     """{op}= operation.
 
     Like the normal one except without duplication.
     """
-    if isinstance(other, Vec):
+    if isinstance(other, Py_Vec):
         self.x {op}= other.x
         self.y {op}= other.y
         self.z {op}= other.z
@@ -150,7 +150,7 @@ def __{func}__(self, other: float):
         raise TypeError("Cannot {pretty} 2 Vectors.")
     else:
         try:
-            return Vec(
+            return Py_Vec(
                 self.x {op} other,
                 self.y {op} other,
                 self.z {op} other,
@@ -164,7 +164,7 @@ def __r{func}__(self, other: float):
         raise TypeError("Cannot {pretty} 2 Vectors.")
     else:
         try:
-            return Vec(
+            return Py_Vec(
                 other {op} self.x,
                 other {op} self.y,
                 other {op} self.z,
@@ -178,7 +178,7 @@ def __i{func}__(self, other: float):
 
     Like the normal one except without duplication.
     """
-    if isinstance(other, Vec):
+    if isinstance(other, Py_Vec):
         raise TypeError("Cannot {pretty} 2 Vectors.")
     else:
         self.x {op}= other
@@ -241,7 +241,7 @@ class Vec:
 
     def copy(self) -> 'Vec':
         """Create a duplicate of this vector."""
-        return Vec(self.x, self.y, self.z)
+        return Py_Vec(self.x, self.y, self.z)
 
     @classmethod
     def from_str(cls, val: Union[str, 'Vec'], x=0.0, y=0.0, z=0.0):
@@ -278,11 +278,11 @@ class Vec:
         axis will be used from the vector.
         """
         vec = cls()
-        vec[axis1] = val1[axis1] if isinstance(val1, Vec) else val1
+        vec[axis1] = val1[axis1] if isinstance(val1, Py_Vec) else val1
         if axis2 is not None:
-            vec[axis2] = val2[axis2] if isinstance(val2, Vec) else val2
+            vec[axis2] = val2[axis2] if isinstance(val2, Py_Vec) else val2
             if axis3 is not None:
-                vec[axis3] = val3[axis3] if isinstance(val3, Vec) else val3
+                vec[axis3] = val3[axis3] if isinstance(val3, Py_Vec) else val3
         return vec
 
     def mat_mul(self, matrix) -> None:
@@ -445,7 +445,7 @@ class Vec:
         """
         # Pitch is applied first, so we need to reconstruct the x-value
         horiz_dist = math.sqrt(self.x ** 2 + self.y ** 2)
-        return Vec(
+        return Py_Vec(
             math.degrees(math.atan2(-self.z, horiz_dist)),
             math.degrees(math.atan2(self.y, self.x)) % 360,
             roll,
@@ -461,7 +461,7 @@ class Vec:
         """
         angle = self.to_angle()
         for roll in range(0, 360, stride):
-            result = Vec(z=1).rotate(angle.x, angle.y, roll)
+            result = Py_Vec(z=1).rotate(angle.x, angle.y, roll)
             if result == z_norm:
                 angle.z = roll
                 return angle
@@ -476,17 +476,17 @@ class Vec:
     def rotation_around(self, rot=90):
         """For an axis-aligned normal, return the angles which rotate around it."""
         if self.x:
-            return Vec(z=self.x * rot)
+            return Py_Vec(z=self.x * rot)
         elif self.y:
-            return Vec(x=self.y * rot)
+            return Py_Vec(x=self.y * rot)
         elif self.z:
-            return Vec(y=self.z * rot)
+            return Py_Vec(y=self.z * rot)
         else:
             raise ValueError('Zero vector!')
 
     def __abs__(self):
         """Performing abs() on a Vec takes the absolute value of all axes."""
-        return Vec(
+        return Py_Vec(
             abs(self.x),
             abs(self.y),
             abs(self.z),
@@ -545,7 +545,7 @@ class Vec:
             except TypeError:
                 return NotImplemented
             else:
-                return Vec(x1, y1, z1), Vec(x2, y2, z2)
+                return Py_Vec(x1, y1, z1), Py_Vec(x2, y2, z2)
 
     def __bool__(self) -> bool:
         """Vectors are True if any axis is non-zero."""
@@ -561,7 +561,7 @@ class Vec:
         A Vector can be compared with a 3-tuple as if it was a Vector also.
         Otherwise the other value will be compared with the magnitude.
         """
-        if isinstance(other, Vec):
+        if isinstance(other, Py_Vec):
             return other.x == self.x and other.y == self.y and other.z == self.z
         elif isinstance(other, tuple):
             return (
@@ -585,7 +585,7 @@ class Vec:
         A Vector can be compared with a 3-tuple as if it was a Vector also.
         Otherwise the other value will be compared with the magnitude.
         """
-        if isinstance(other, Vec):
+        if isinstance(other, Py_Vec):
             return other.x != self.x or other.y != self.y or other.z != self.z
         elif isinstance(other, tuple):
             return (
@@ -609,7 +609,7 @@ class Vec:
         A Vector can be compared with a 3-tuple as if it was a Vector also.
         Otherwise the other value will be compared with the magnitude.
         """
-        if isinstance(other, Vec):
+        if isinstance(other, Py_Vec):
             return (
                 self.x < other.x and
                 self.y < other.y and
@@ -637,7 +637,7 @@ class Vec:
         A Vector can be compared with a 3-tuple as if it was a Vector also.
         Otherwise the other value will be compared with the magnitude.
         """
-        if isinstance(other, Vec):
+        if isinstance(other, Py_Vec):
             return (
                 self.x <= other.x and
                 self.y <= other.y and
@@ -665,7 +665,7 @@ class Vec:
         A Vector can be compared with a 3-tuple as if it was a Vector also.
         Otherwise the other value will be compared with the magnitude.
         """
-        if isinstance(other, Vec):
+        if isinstance(other, Py_Vec):
             return (
                 self.x > other.x and
                 self.y > other.y and
@@ -693,7 +693,7 @@ class Vec:
         A Vector can be compared with a 3-tuple as if it was a Vector also.
         Otherwise the other value will be compared with the magnitude.
         """
-        if isinstance(other, Vec):
+        if isinstance(other, Py_Vec):
             return (
                 self.x >= other.x and
                 self.y >= other.y and
@@ -832,11 +832,11 @@ class Vec:
 
     def __neg__(self):
         """The inverted form of a Vector has inverted axes."""
-        return Vec(-self.x, -self.y, -self.z)
+        return Py_Vec(-self.x, -self.y, -self.z)
 
     def __pos__(self):
         """+ on a Vector simply copies it."""
-        return Vec(self.x, self.y, self.z)
+        return Py_Vec(self.x, self.y, self.z)
 
     def norm(self) -> 'Vec':
         """Normalise the Vector.
@@ -865,7 +865,7 @@ class Vec:
 
     def cross(self, other):
         """Return the cross product of both Vectors."""
-        return Vec(
+        return Py_Vec(
             self.y * other.z - self.z * other.y,
             self.z * other.x - self.x * other.z,
             self.x * other.y - self.y * other.x,
@@ -896,3 +896,14 @@ class Vec:
 
     len = mag
     mag_sq = len_sq
+
+# These are available as both C and Python versions, plus the unprefixed
+# best version.
+Py_Vec = Vec
+try:
+    # noinspection all
+    from srctools._vec import Vec
+except ImportError:
+    C_Vec = None
+else:
+    C_Vec = Vec
