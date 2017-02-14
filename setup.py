@@ -2,7 +2,7 @@ from setuptools import setup
 
 try:
     from Cython.Build import cythonize
-    modules = cythonize("srctools/_tokenizer.pyx")
+    modules = cythonize("srctools/*.pyx")
 except ImportError:
     print('Cython not installed, not compiling Cython modules.')
     modules = []
