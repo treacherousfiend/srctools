@@ -2,8 +2,9 @@
 import pytest
 import operator as op
 
-from srctools import Vec_tuple, Vec
+from srctools.vec import Vec_tuple, Py_Vec, C_Vec
 
+Vec = Py_Vec
 
 VALID_NUMS = [
     1, 1.5, 0.2827, 2346.45,
@@ -12,14 +13,22 @@ VALID_NUMS += [-x for x in VALID_NUMS]
 
 VALID_ZERONUMS = VALID_NUMS + [0, -0]
 
+if C_Vec is not None:
+    parms = [C_Vec, Py_Vec]
+    ids = ['Cython', 'Python']
+else:
+    print('No _vec!')
+    parms = [Py_Vec]
+    ids = ['Python']
 
-@pytest.fixture(params=[Vec])
+
+@pytest.fixture(params=parms, ids=ids)
 def py_c_vec(request):
     """Run the test twice, for the Python and C versions."""
     global Vec
     orig_vec = Vec
     Vec = request.param
-    yield None
+    yield Vec
     Vec = orig_vec
 
 
@@ -46,13 +55,13 @@ def assert_vec(vec, x, y, z, msg=''):
         # Success!
         return
 
-    new_msg = "{!r} != ({}, {}, {})".format(vec, failed, x, y, z)
+    new_msg = "{!r}.{} != ({}, {}, {})".format(vec, failed, x, y, z)
     if msg:
         new_msg += ': ' + msg
     pytest.fail(new_msg)
 
 
-def test_construction():
+def test_construction(py_c_vec):
     """Check various parts of the constructor - Vec(), Vec.from_str()."""
     for x, y, z in iter_vec(VALID_ZERONUMS):
         assert_vec(Vec(x, y, z), x, y, z)
@@ -94,7 +103,7 @@ def test_construction():
         assert val == Vec.from_str('34.5 38.4 -23 -38', z=val).z
 
 
-def test_scalar():
+def test_scalar(py_c_vec):
     """Check that Vec() + 5, -5, etc does the correct thing.
 
     For +, -, *, /, // and % calling with a scalar should perform the
@@ -164,7 +173,7 @@ def test_scalar():
                 )
 
 
-def test_vec_plus_or_minus_vec():
+def test_vec_plus_or_minus_vec(py_c_vec):
     """Check that Vec() +/- Vec() does the correct thing.
 
     For +, -, two Vectors apply the operations to all values.
@@ -260,7 +269,7 @@ def test_vec_plus_or_minus_vec():
             test(num, num, num, num, num, 0)
 
 
-def test_scalar_zero():
+def test_scalar_zero(py_c_vec):
     """Check zero behaviour with division ops."""
     for x, y, z in iter_vec(VALID_NUMS):
         assert_vec(0 / Vec(x, y, z), 0, 0, 0)
@@ -268,7 +277,7 @@ def test_scalar_zero():
         assert_vec(0 % Vec(x, y, z), 0, 0, 0)
 
 
-def test_order():
+def test_order(py_c_vec):
     """Test ordering operations (>, <, <=, >=, ==)."""
     comp_ops = [op.eq, op.le, op.lt, op.ge, op.gt, op.ne]
 
@@ -308,7 +317,7 @@ def test_order():
             test(num, num, num, num, num, 0)
 
 
-def test_axis():
+def test_axis(py_c_vec):
     """Test the Vec.axis() function."""
     assert Vec(1, 0, 0).axis() == 'x'
     assert Vec(-1, 0, 0).axis() == 'x'
@@ -318,13 +327,13 @@ def test_axis():
     assert Vec(0, 0, -1).axis() == 'z'
 
 
-def test_abs():
+def test_abs(py_c_vec):
     """Test the function of abs(Vec)."""
     for x, y, z in iter_vec(VALID_ZERONUMS):
         assert_vec(abs(Vec(x, y, z)), abs(x), abs(y), abs(z))
 
 
-def test_bool():
+def test_bool(py_c_vec):
     """Test bool() applied to Vec."""
     # Empty vector is False
     assert not Vec(0, 0, 0)
@@ -340,7 +349,7 @@ def test_bool():
         assert Vec(val, val, val)
 
 
-def test_len():
+def test_len(py_c_vec):
     """Test len(Vec)."""
     # len(Vec) is the number of non-zero axes.
 
@@ -357,7 +366,7 @@ def test_len():
         assert len(Vec(val, val, val)) == 3
 
 
-def test_vec_constants():
+def test_vec_constants(py_c_vec):
     """Check some of the constants assigned to Vec."""
     assert Vec.N == Vec.north == Vec(y=1)
     assert Vec.S == Vec.south == Vec(y=-1)
@@ -422,7 +431,7 @@ ROUND_VALS = [
 ]
 
 
-def test_round():
+def test_round(py_c_vec):
     """Test round(Vec)."""
     for from_val, to_val in ROUND_VALS:
         assert round(Vec(from_val, from_val, from_val)) == Vec(to_val, to_val, to_val)
@@ -443,7 +452,7 @@ MINMAX_VALUES = [
 MINMAX_VALUES += [(b, a) for a,b in MINMAX_VALUES]
 
 
-def test_minmax():
+def test_minmax(py_c_vec):
     """Test Vec.min() and Vec.max()."""
     vec_a = Vec()
     vec_b = Vec()
