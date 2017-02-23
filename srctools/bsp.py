@@ -1,12 +1,12 @@
 """Read and write lumps in Source BSP files.
 
 """
-from enum import Enum
+from enum import Enum, IntFlag
 from io import BytesIO
 from srctools import AtomicWriter, Vec
 import struct
 
-from typing import List, Iterator
+from typing import List, Tuple, Iterator, Union
 
 __all__ = [
     'BSP_LUMPS', 'VERSIONS'
@@ -152,6 +152,104 @@ class BSP_LUMPS(Enum):
 LUMP_COUNT = max(lump.value for lump in BSP_LUMPS) + 1  # 64 normally
 
 
+class BRUSH_CONTENTS(IntFlag):
+    """Flags for brushes, used to define their collisions."""
+    EMPTY         = 0x0
+    # an eye is never valid in a solid
+    SOLID         = 0x1
+    # translucent, but not watery (glass)
+    WINDOW        = 0x2
+    AUX           = 0x4
+    # alpha-tested "grate" textures. Bullets/sight pass through, but solids don't
+    GRATE         = 0x8
+    # Variant of water
+    SLIME         = 0x10
+    # Liquid      =
+    WATER         = 0x20
+    MIST          = 0x40
+
+    # block AI line of sight
+    OPAQUE        = 0x80
+
+    # things that cannot be seen through (may be non-solid though)
+    TESTFOGVOLUME = 0x100
+    # Unused
+    UNUSED        = 0x200
+    UNUSED6       = 0x400
+    # per team contents used to differentiate collisions between players
+    # and objects on different teams
+    TEAM1         = 0x800
+    TEAM2         = 0x1000
+
+    # ignore CONTENTS_OPAQUE on surfaces that have SURF_NODRAW
+    IGNORE_NODRAW_OPAQUE = 0x200
+
+    # hits entities which are MOVETYPE_PUSH (doors, plats, etc.)
+    MOVEABLE      = 0x4000
+
+    # remaining contents are non-visible, and don't eat brushes
+    AREAPORTAL    = 0x8000
+    PLAYERCLIP    = 0x10000
+    MONSTERCLIP   = 0x20000
+
+    # currents can be added to any other contents, and may be mixed
+    CURRENT_0     = 0x40000
+    CURRENT_90    = 0x80000
+    CURRENT_180   = 0x100000
+    CURRENT_270   = 0x200000
+    CURRENT_UP    = 0x400000
+    CURRENT_DOWN  = 0x800000
+
+    # removed before bsping an entity
+    ORIGIN        = 0x1000000
+    # should never be on a brush, only in game
+    MONSTER       = 0x2000000
+
+    DEBRIS        = 0x4000000
+    # func_detail brushes
+    DETAIL        = 0x8000000
+    TRANSLUCENT   = 0x10000000
+    LADDER        = 0x20000000
+    HITBOX        = 0x40000000  # use accurate hitboxes on trace
+
+
+class TexInfoFlag(IntFlag):
+    """Flags for individual faces."""
+    # Value will hold the light strength
+    LIGHT     = 0x1
+    # Don't draw, indicates we should skylight + draw 2d sky but not draw the 3D skybox
+    SKY2D     = 0x2
+    # Don't draw, but add to skybox
+    SKY       = 0x4
+    # Turbulent water warp
+    WARP      = 0x8
+    # Texture is translucent
+    TRANS     = 0x10
+    # The surface can not have a portal placed on it
+    NOPORTAL  = 0x20
+    # This is an xbox hack to work around elimination of trigger surfaces,
+    # which breaks occluders
+    TRIGGER   = 0x40
+    # Don't bother referencing the texture
+    NODRAW    = 0x80
+    # Make a primary bsp splitter
+    HINT      = 0x100
+    # Completely ignore, allowing non-closed brushes
+    SKIP      = 0x200
+    # Don't calculate light
+    NOLIGHT   = 0x400
+    # Calculate three lightmaps for the surface for bumpmapping
+    BUMPLIGHT = 0x800
+    # Don't receive shadows
+    NOSHADOWS = 0x1000
+    # Don't receive decals
+    NODECALS  = 0x2000
+    # Don't subdivide patches on this surface
+    NOCHOP    = 0x4000
+    # Surface is part of a hitbox
+    HITBOX    = 0x8000
+
+
 class BSP:
     """A BSP file."""
     def __init__(self, filename, version=VERSIONS.PORTAL_2):
@@ -250,7 +348,7 @@ class BSP:
 
     # Lump-specific commands:
 
-    def read_texture_names(self):
+    def read_texture_names(self) -> List[str]:
         """Iterate through all brush textures in the map."""
         tex_data = self.get_lump(BSP_LUMPS.TEXDATA_STRING_DATA)
         tex_table = self.get_lump(BSP_LUMPS.TEXDATA_STRING_TABLE)
@@ -263,18 +361,121 @@ class BSP:
             tex_table,
         )
 
+        out_table = []
+
         for off in table_offsets:
             # Look for the NULL at the end - strings are limited to 128 chars.
             str_off = 0
             for str_off in range(off, off + 128):
                 if tex_data[str_off] == 0:
-                    yield tex_data[off: str_off].decode('ascii')
+                    out_table.append(tex_data[off: str_off].decode('ascii'))
                     break
             else:
                 # Reached the 128 char limit without finding a null.
                 raise ValueError('Bad string at', off, 'in BSP! ("{}")'.format(
                     tex_data[off:str_off]
                 ))
+
+        return out_table
+
+    def read_texinfo(self) -> List['TexInfo']:
+        """Read the texinfo blocks, which describe textures."""
+        tex_table = self.read_texture_names()
+
+        struct_texdata = struct.Struct('fffiiiii')
+        struct_texinfo = struct.Struct('16fii')
+
+        texdata_list = []
+        texinfo_list = []
+
+        for (
+            ref_x, ref_y, ref_z,
+            tex_off,
+            height, width,
+            view_width, view_height,
+        ) in struct_texdata.iter_unpack(self.get_lump(BSP_LUMPS.TEXDATA)):
+            texdata_list.append(TexData(
+                tex_table[tex_off],
+                Vec(ref_x, ref_y, ref_z),
+                height, width,
+                view_width, view_height,
+            ))
+
+        for (
+            tex_sx, tex_sy, tex_sz, tex_s_off,
+            tex_tx, tex_ty, tex_tz, tex_t_off,
+            light_sx, light_sy, light_sz, light_s_off,
+            light_tx, light_ty, light_tz, light_t_off,
+            flags, texdata_off,
+        ) in struct_texinfo.iter_unpack(self.get_lump(BSP_LUMPS.TEXINFO)):
+            texinfo_list.append(TexInfo(
+                Vec(tex_sx, tex_sy, tex_sz),
+                tex_s_off,
+                Vec(tex_tx, tex_ty, tex_tz),
+                tex_t_off,
+
+                Vec(light_sx, light_sy, light_sz),
+                light_s_off,
+                Vec(light_tx, light_ty, light_tz),
+                light_t_off,
+
+                texdata_list[texdata_off],
+                TexInfoFlag(flags),
+            ))
+
+        return texinfo_list
+
+    def read_brushes(self) -> List['Brush']:
+        """Return the list of brush data (not the faces).
+
+        This returns a list of ([BrushSide], contents) tuples.
+        """
+        sides_data = self.get_lump(BSP_LUMPS.BRUSHSIDES)
+        brush_sides = []
+        for plane_num, texinfo, dispinfo, bevel in struct.iter_unpack('Hhhh', sides_data):
+            brush_sides.append(BrushSide(plane_num, texinfo, dispinfo, bevel))
+
+        brush_data = self.get_lump(BSP_LUMPS.BRUSHES)
+
+        brushes = []
+
+        for first_side, side_len, contents in struct.iter_unpack('iii', brush_data):
+            brushes.append(Brush(
+                brush_sides[first_side: first_side + side_len],
+                BRUSH_CONTENTS(contents),
+            ))
+
+        return brushes
+
+    def write_brushes(self, brushes: List['Brush']):
+        """Write the brush and brushsides lumps back into the BSP."""
+        brush_data = BytesIO()
+        brush_sides = BytesIO()
+
+        cur_off = 0
+
+        struct_brush = struct.Struct('iii')
+        struct_sides = struct.Struct('Hhhh')
+
+        for brush in brushes:
+            brush_data.write(struct_brush.pack(
+                cur_off,
+                len(brush.sides),
+                int(brush.contents),
+            ))
+            cur_off += len(brush.sides)
+
+            for side in brush:
+                brush_sides.write(struct_sides.pack(
+                    side.plane_num,
+                    side.texinfo_off,
+                    side.dispinfo,
+                    side.bevel,
+                ))
+
+        self.replace_lump(self.filename, BSP_LUMPS.BRUSHES, brush_data.getvalue())
+        self.replace_lump(self.filename, BSP_LUMPS.BRUSHSIDES, brush_sides.getvalue())
+
 
     def read_ent_data(self):
         """Iterate through the entities in a map.
@@ -430,7 +631,6 @@ class BSP:
             )
 
 
-
 class Lump:
     """Represents a lump header in a BSP file.
 
@@ -479,6 +679,93 @@ class Lump:
                 s=self
             )
         )
+
+
+class BrushSide:
+    """Represents a side of a brush in the BSP."""
+    __slots__ = ['plane_num', 'texinfo_off', 'dispinfo', 'bevel']
+
+    def __init__(self, plane_num, texinfo_off: int, dispinfo, bevel):
+        self.plane_num = plane_num
+        self.texinfo_off = texinfo_off
+        self.dispinfo = dispinfo
+        self.bevel = bevel
+
+    def __repr__(self):
+        return 'BrushSide({}, {}, {}, {})'.format(
+            self.plane_num,
+            self.texinfo_off,
+            self.dispinfo,
+            self.bevel,
+        )
+
+
+class Brush:
+    """Represents a brush in the BSP."""
+    __slots__ = ['sides', 'contents']
+
+    def __init__(self, sides: List[BrushSide], contents: BRUSH_CONTENTS):
+        self.sides = sides
+        self.contents = contents
+
+    def __iter__(self):
+        return iter(self.sides)
+
+    def __repr__(self):
+        return 'Brush(contents={!r}, sides={!r})'.format(self.contents, self.sides)
+
+class TexData:
+    __slots__ = [
+        'texture', 'reflection',
+        'width', 'height',
+        'view_width', 'view_height',
+    ]
+    def __init__(
+        self,
+        texture: str,
+        reflection: Vec,
+        width: float, height: float,
+        view_width: float, view_height: float,
+    ):
+        self.texture = texture
+        self.reflection = reflection
+        self.width = width
+        self.height = height
+        self.view_height = view_height
+        self.view_width = view_width
+
+
+class TexInfo:
+    """Represents data for a texture - face scaling and lightmap."""
+    __slots__ = [
+        'tex_s', 'tex_t', 'tex_s_off', 'tex_t_off',
+        'light_s', 'light_t', 'light_s_off', 'light_t_off',
+        'texdata', 'flags',
+    ]
+    def __init__(
+        self,
+        tex_s: Vec,
+        tex_s_off: float,
+        tex_t: Vec,
+        tex_t_off: float,
+        light_s: Vec,
+        light_s_off: float,
+        light_t: Vec,
+        light_t_off: float,
+        texdata: TexData,
+        flags: TexInfoFlag,
+    ):
+        self.tex_s = tex_s
+        self.tex_s_off = tex_s_off
+        self.tex_t = tex_t
+        self.tex_t_off = tex_t_off
+
+        self.light_s = light_s
+        self.light_s_off = light_s_off
+        self.light_t = light_t
+        self.light_t_off = light_t_off
+        self.texdata = texdata
+        self.flags = flags
 
 
 class StaticProp:
