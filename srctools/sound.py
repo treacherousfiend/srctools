@@ -79,6 +79,20 @@ class Level(Enum):
     
     def __str__(self):
         return self.name
+        
+class Position(Enum):
+    """Represents special positions for soundscapes."""
+    RAND = 'random'
+    
+    # Specified on the entity.
+    POS_0 = 0
+    POS_1 = 1
+    POS_2 = 2
+    POS_3 = 3
+    POS_4 = 4
+    POS_5 = 5
+    POS_6 = 6
+    POS_7 = 7
     
 
 EnumType = TypeVar('EnumType', bound=Enum)
@@ -86,35 +100,34 @@ EnumType = TypeVar('EnumType', bound=Enum)
 
 def split_float(
     val: str, 
-    enum: Callable[[str], EnumType], 
+    enum: EnumType, 
     default,
 ) -> Tuple[Union[float, EnumType], Union[float, EnumType]]:
     """Handle values which can be either single or a low, high pair of numbers.
     
     If single, low and high are the same.
-    enum is a Enum with values to match text constants, or a converter function
-    returning enums or raising ValueError, KeyError or IndexError.
+    enum is a Enum with values to match text constants.
     """
     if ',' in val:
         s_low, s_high = val.split(',')
         try: 
             low = enum(s_low.upper())
-        except (LookupError, ValueError):
+        except ValueError:
             low = conv_float(s_low, default)
         try: 
             high = enum(s_high.upper())
-        except (LookupError, ValueError):
+        except ValueError:
             high = conv_float(s_high, default)
         return low, high
     else:
         try: 
             out = enum(val.upper())
-        except (LookupError, ValueError):
+        except ValueError:
             out = conv_float(val, default)
         return out, out
 
 
-def join_float(val) -> str:
+def join_float(val: Tuple[Union[Enum, float], Union[Enum, float]]) -> str:
     """Reverse split_float()."""
     low, high = val
     if low == high:
@@ -166,13 +179,13 @@ class Sound:
             )
             pitch = split_float(
                 snd_prop['pitch', '100'],
-                Pitch.__getitem__,
+                Pitch,
                 100.0,
             )
             
             level = split_float(
                 snd_prop['soundlevel', 'SNDLVL_NORM'],
-                Level.__getitem__,
+                Level,
                 Level.SNDLVL_NORM,
             )
             
@@ -285,5 +298,99 @@ class Sound:
                     file.write('\t\t\t}\n')
                 file.write('\t\t}\n')
             file.write('\t}\n')
+            
+class SubScape:
+    """A reference to a child soundscape that will also play."""
+    def __init__(
+        self,
+        name: str,
+        volume: float,
+        pos_offset: Optional[Position],
+        pos_over: Optional[Position],
+        pos_ambient: Optional[Position],
+    ) -> None:
+        self.name = name
+        self.pos_offset = pos_offset
+        self.pos = pos_over
+        self.pos_ambient = pos_ambient
+        
+    @staticmethod
+    def _parse_pos(prop: Property, kv: str) -> Optional[Position]:
+        value = prop[kv, '']
+        if value:
+            try:
+                return Position(int(value))
+            except (ValueError, TypeError):
+                raise ValueError('Invalid "{}" value!'.format(kv))
+        else:
+            return None
 
+    @classmethod
+    def parse(cls, prop: Property) -> 'SubScape':
+        return cls(
+            prop['name'],
+            prop.float('volume'),
+            cls._parse_pos(prop, 'position'),
+            cls._parse_pos(prop, 'positionoverride'),
+            cls._parse_pos(prop, 'ambientpositionoverride'),
+        )
+        
+class LoopScape:
+    """A looping sound that plays whilst a soundscape is active."""
+        
+class RandScape:
+    """A set of non-looping sounds that randomly play at intervals."""
 
+class Scape:
+    """Represents a soundscape."""
+    def __init__(
+        self,
+        name: str,
+        fadetime: float=0.0,
+        soundmixer: str='',
+        dsp_preset: Optional[str]=None,
+        dsp_volume: float=1.0,
+        dsp_spatial: int=0,
+        
+        children: Iterable[SubScape]=(),
+        snd_random: Iterable[RandScape]=(),
+        snd_looping: Iterable[LoopScape]=(),
+    ) -> None:
+        self.name = name
+        self.fadetime = fadetime
+        self.soundmixer = soundmixer
+        self.dsp_preset = dsp_preset
+        self.dsp_volume = dsp_volume
+        self.dsp_spatial = dsp_spatial
+        
+        self.children = list(children)
+        self.snd_random = list(snd_random)
+        self.snd_looping = list(snd_looping)
+    
+    @staticmethod
+    def parse(
+        props: Property,
+    ) -> Dict[str, 'Scape']:
+        """Parse soundscripts from a property tree."""
+        scapes = {}  # type: Dict[str, Scape]
+        
+        for prop in props:
+            
+            if 'dsp' in prop:
+                dsp_preset = prop.int('dsp', 0)
+                dsp_volume = prop.float('dsp_volume', 1.0)
+                dsp_spatial = prop.int('dsp_spatial', 0)  # Check default
+            else:
+                dsp_preset = None
+                dsp_volume = 1.0
+                dsp_spatial = 0
+            
+            
+            scapes[prop.name] = Scape(
+                prop.real_name,
+                prop.float('fadetime', 0.0),
+                prop['soundmixer', ''],
+                dsp_preset,
+                dsp_spatial,
+                dsp_volume
+            )
