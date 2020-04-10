@@ -74,29 +74,6 @@ cdef class Tokenizer:
         * allow_escapes controls whether \\n-style escapes are expanded.
         * allow_star_comments if enabled allows /* */ comments.
     """
-    cdef str cur_chunk
-    cdef object chunk_iter
-    # Class to call when errors occur..
-    cdef object error_type
-
-    cdef public str filename
-
-    cdef int char_index # Position inside cur_chunk
-
-    cdef public int line_num
-    cdef public bint string_bracket
-    cdef public bint allow_escapes
-    cdef public bint allow_star_comments
-
-    cdef object pushback_tok
-    cdef object pushback_val
-
-    # Private buffer, to hold string parts we're constructing.
-    # Tokenizers are expected to be temporary, so we just never shrink.
-    cdef Py_ssize_t buf_size  # 2 << x
-    cdef unsigned int buf_pos
-    cdef Py_UCS4* val_buffer
-
     def __cinit__(self):
         self.val_buffer = <Py_UCS4 *>PyMem_Malloc(32 * sizeof(Py_UCS4))
         self.buf_size = 32
@@ -278,7 +255,7 @@ cdef class Tokenizer:
         """Return the next token, value pair."""
         return self.next_token()
 
-    cdef next_token(self):
+    cdef tuple next_token(self):
         """Return the next token, value pair - this is the C version."""
         cdef:
             Py_UCS4 next_char
@@ -491,6 +468,14 @@ cdef class Tokenizer:
         Only one token can be pushed back at once.
         The value should be the original value, or None
         """
+        self._push_back(tok, value)
+        
+    cdef void _push_back(self, object tok, str value=None):
+        """Return a token, so it will be reproduced when called again.
+
+        Only one token can be pushed back at once.
+        The value should be the original value, or None
+        """
         if self.pushback_tok is not None:
             raise ValueError('Token already pushed back!')
         if not isinstance(tok, Token):
@@ -538,7 +523,7 @@ cdef class Tokenizer:
         self.pushback_val = value
 
 
-    def peek(self):
+    cpdef peek(self):
         """Peek at the next token, without removing it from the stream."""
         # We know this is a valid pushback value, and any existing value was
         # just removed. So unconditionally assign.
@@ -551,6 +536,15 @@ cdef class Tokenizer:
         return _NewlinesIter.__new__(_NewlinesIter, self)
 
     def expect(self, object token, bint skip_newline=True):
+        """Consume the next token, which should be the given type.
+
+        If it is not, this raises an error.
+        If skip_newline is true, newlines will be skipped over. This
+        does not apply if the desired token is newline.
+        """
+        return self._expect(token, skip_newline)
+
+    cdef _expect(self, object token, bint skip_newline=True):
         """Consume the next token, which should be the given type.
 
         If it is not, this raises an error.
