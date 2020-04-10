@@ -972,3 +972,13 @@ class _BuilderElem:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._builder._parents.pop()
+
+
+py_parse = cy_parse = Property.parse
+try:
+    from srctools._property_parser import parse as cy_parse  # type: ignore
+except ImportError:
+    pass
+else:
+    cy_parse.__annotations__ = py_parse.__annotations__
+    Property.parse = staticmethod(cy_parse)

@@ -44,6 +44,11 @@ setup(
             sources=["srctools/_cy_vtf_readwrite.pyx"],
             # extra_compile_args=['/FAs'],  # MS ASM dump
         ),
+        Extension(
+            "srctools._property_parser",
+            sources=["srctools/_property_parser.pyx"],
+            # extra_compile_args=['/FAs'],  # MS ASM dump
+        ),
     ]),
 
     package_data={'srctools': [
