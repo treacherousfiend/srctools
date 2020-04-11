@@ -1121,12 +1121,6 @@ static int __Pyx_ParseOptionalKeywords(PyObject *kwds, PyObject **argnames[],\
 static void __Pyx_RaiseArgtupleInvalid(const char* func_name, int exact,
     Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found);
 
-/* ArgTypeTest.proto */
-#define __Pyx_ArgTypeTest(obj, type, none_allowed, name, exact)\
-    ((likely((Py_TYPE(obj) == type) | (none_allowed && (obj == Py_None)))) ? 1 :\
-        __Pyx__ArgTypeTest(obj, type, name, exact))
-static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact);
-
 /* tp_new.proto */
 #define __Pyx_tp_new(type_obj, args) __Pyx_tp_new_kwargs(type_obj, args, NULL)
 static CYTHON_INLINE PyObject* __Pyx_tp_new_kwargs(PyObject* type_obj, PyObject* args, PyObject* kwargs) {
@@ -1882,7 +1876,7 @@ static int __pyx_f_8srctools_16_property_parser__read_flag(PyObject *__pyx_v_fla
  * # Implement Property.parse in C, to attempt to speed it up.
  * def parse(             # <<<<<<<<<<<<<<
  *     file_contents,
- *     str filename = '',
+ *     filename = '',
  */
 
 /* Python wrapper */
@@ -1900,11 +1894,11 @@ static PyObject *__pyx_pw_8srctools_16_property_parser_1parse(PyObject *__pyx_se
   {
     static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_file_contents,&__pyx_n_s_filename,&__pyx_n_s_flags,&__pyx_n_s_allow_escapes,0};
     PyObject* values[4] = {0,0,0,0};
-    values[1] = ((PyObject*)((PyObject*)__pyx_kp_u_));
+    values[1] = ((PyObject *)((PyObject*)__pyx_kp_u_));
 
     /* "srctools/_property_parser.pyx":46
  *     file_contents,
- *     str filename = '',
+ *     filename = '',
  *     flags = None,             # <<<<<<<<<<<<<<
  *     bint allow_escapes = True,
  * ):
@@ -1966,14 +1960,14 @@ static PyObject *__pyx_pw_8srctools_16_property_parser_1parse(PyObject *__pyx_se
       }
     }
     __pyx_v_file_contents = values[0];
-    __pyx_v_filename = ((PyObject*)values[1]);
+    __pyx_v_filename = values[1];
     __pyx_v_flags = values[2];
     if (values[3]) {
       __pyx_v_allow_escapes = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_allow_escapes == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L3_error)
     } else {
 
       /* "srctools/_property_parser.pyx":47
- *     str filename = '',
+ *     filename = '',
  *     flags = None,
  *     bint allow_escapes = True,             # <<<<<<<<<<<<<<
  * ):
@@ -1990,7 +1984,6 @@ static PyObject *__pyx_pw_8srctools_16_property_parser_1parse(PyObject *__pyx_se
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_filename), (&PyUnicode_Type), 1, "filename", 1))) __PYX_ERR(0, 45, __pyx_L1_error)
   __pyx_r = __pyx_pf_8srctools_16_property_parser_parse(__pyx_self, __pyx_v_file_contents, __pyx_v_filename, __pyx_v_flags, __pyx_v_allow_escapes);
 
   /* "srctools/_property_parser.pyx":43
@@ -1998,14 +1991,10 @@ static PyObject *__pyx_pw_8srctools_16_property_parser_1parse(PyObject *__pyx_se
  * # Implement Property.parse in C, to attempt to speed it up.
  * def parse(             # <<<<<<<<<<<<<<
  *     file_contents,
- *     str filename = '',
+ *     filename = '',
  */
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = NULL;
-  __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
@@ -3450,7 +3439,7 @@ static PyObject *__pyx_pf_8srctools_16_property_parser_parse(CYTHON_UNUSED PyObj
  * # Implement Property.parse in C, to attempt to speed it up.
  * def parse(             # <<<<<<<<<<<<<<
  *     file_contents,
- *     str filename = '',
+ *     filename = '',
  */
 
   /* function exit code */
@@ -3598,7 +3587,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * # Implement Property.parse in C, to attempt to speed it up.
  * def parse(             # <<<<<<<<<<<<<<
  *     file_contents,
- *     str filename = '',
+ *     filename = '',
  */
   __pyx_tuple__2 = PyTuple_Pack(16, __pyx_n_s_file_contents, __pyx_n_s_filename, __pyx_n_s_flags, __pyx_n_s_allow_escapes, __pyx_n_s_cur_block, __pyx_n_s_open_properties, __pyx_n_s_tokenizer, __pyx_n_s_requires_block, __pyx_n_s_can_flag_replace, __pyx_n_s_token_value, __pyx_n_s_prop_value, __pyx_n_s_token_type, __pyx_n_s_keyvalue, __pyx_n_s_prop_type, __pyx_n_s_flag_token, __pyx_n_s_flag_val); if (unlikely(!__pyx_tuple__2)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__2);
@@ -4074,7 +4063,7 @@ if (!__Pyx_RefNanny) {
   __pyx_t_1 = 0;
 
   /* "srctools/_property_parser.pyx":47
- *     str filename = '',
+ *     filename = '',
  *     flags = None,
  *     bint allow_escapes = True,             # <<<<<<<<<<<<<<
  * ):
@@ -4088,7 +4077,7 @@ if (!__Pyx_RefNanny) {
  * # Implement Property.parse in C, to attempt to speed it up.
  * def parse(             # <<<<<<<<<<<<<<
  *     file_contents,
- *     str filename = '',
+ *     filename = '',
  */
   __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -4819,27 +4808,6 @@ static void __Pyx_RaiseArgtupleInvalid(
                  "%.200s() takes %.8s %" CYTHON_FORMAT_SSIZE_T "d positional argument%.1s (%" CYTHON_FORMAT_SSIZE_T "d given)",
                  func_name, more_or_less, num_expected,
                  (num_expected == 1) ? "" : "s", num_found);
-}
-
-/* ArgTypeTest */
-static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact)
-{
-    if (unlikely(!type)) {
-        PyErr_SetString(PyExc_SystemError, "Missing type object");
-        return 0;
-    }
-    else if (exact) {
-        #if PY_MAJOR_VERSION == 2
-        if ((type == &PyBaseString_Type) && likely(__Pyx_PyBaseString_CheckExact(obj))) return 1;
-        #endif
-    }
-    else {
-        if (likely(__Pyx_TypeCheck(obj, type))) return 1;
-    }
-    PyErr_Format(PyExc_TypeError,
-        "Argument '%.200s' has incorrect type (expected %.200s, got %.200s)",
-        name, type->tp_name, Py_TYPE(obj)->tp_name);
-    return 0;
 }
 
 /* PyObjectSetAttrStr */

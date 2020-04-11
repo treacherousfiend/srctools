@@ -42,7 +42,7 @@ cdef bint _read_flag(flags, str flag_val):
 # Implement Property.parse in C, to attempt to speed it up.
 def parse(
     file_contents,
-    str filename = '',
+    filename = '',
     flags = None,
     bint allow_escapes = True,
 ):
