@@ -14,6 +14,11 @@ from srctools.tokenizer import (
     TokenSyntaxError,
 )
 
+try:
+    from os import fspath
+except ImportError:
+    fspath = None
+
 T = Token
 
 # The correct result of parsing prop_parse_test.
@@ -283,6 +288,25 @@ def test_constructor(py_c_token):
     Tokenizer('blah', '', KeyValError, True)
     Tokenizer('blah', error=KeyValError)
     Tokenizer(['blah', 'blah'], string_bracket=True)
+
+
+@pytest.mark.skipif(fspath is None, reason='No fspath()')
+def test_filename_types(py_c_token):
+    """Path classes are allowed for the filename."""
+
+    class CustPath:
+        def __str__(self) -> str:
+            return "string form"
+
+        def __fspath__(self) -> str:
+            return "a/real/path"
+
+    list(Tokenizer("test text", filename=CustPath()))
+
+    with pytest.raises(TokenSyntaxError) as exc_info:
+        list(Tokenizer('"', CustPath()))
+    # Check it did not stringify, but used fspath.
+    assert exc_info.value.file == "a/real/path"
 
 
 def test_obj_config(py_c_token):

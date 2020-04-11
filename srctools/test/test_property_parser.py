@@ -11,6 +11,11 @@ else:
     parms = [(Py_Tokenizer, py_parse)]
     ids = ['Python tokenizer']
 
+try:
+    from os import fspath
+except ImportError:
+    fspath = None
+
 
 @pytest.fixture(params=parms, ids=ids)
 def py_c_token(request):
@@ -231,7 +236,42 @@ def test_parse(py_c_token):
 
     # Check export roundtrips.
     assert_tree(parse_result, Property.parse(parse_result.export()))
-    
+
+
+def test_subclass_flags(py_c_token):
+    # Check a subclass is a valid flags type.
+    class MyMapping:
+        """It should only use getitem."""
+        def __getitem__(self, item):
+            if item == "test_enabled":
+                return True
+            elif item == "test_disabled":
+                return False
+            raise KeyError(item)
+
+        def __len__(self):
+            return 2
+
+    assert_tree(parse_result, Property.parse(parse_test, flags=MyMapping()))
+
+
+@pytest.mark.skipif(fspath is None, reason='No fspath()')
+def test_filename_types(py_c_token):
+    """Path classes are allowed for the filename."""
+    class CustPath:
+        def __str__(self) -> str:
+            return "string form"
+
+        def __fspath__(self) -> str:
+            return "a/real/path"
+
+    Property.parse(parse_test, filename=CustPath())
+    with pytest.raises(KeyValError) as exc_info:
+        Property.parse('{}', CustPath())
+    # Check it did not stringify, but used fspath.
+    assert exc_info.value.file == "a/real/path"
+
+
 def test_build():
     """Test the .build() constructor."""
     prop = Property(None, [])
