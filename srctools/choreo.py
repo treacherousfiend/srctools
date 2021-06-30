@@ -1,11 +1,19 @@
 """Parses VCD choreo scenes, as well as data in scenes.image."""
-from typing import NamedTuple, List, IO, NewType, Dict, Union, Tuple
+from typing import List, IO, NewType, Dict, cast, Tuple
 import attr
 
-from srctools.binformat import struct_read, read_nullstr
+from srctools.binformat import struct_read, read_nullstr, checksum as raw_checksum
 
 
 CRC = NewType('CRC', int)
+
+
+def checksum_filename(filename: str) -> CRC:
+    """Normalise the filename, then checksum it."""
+    filename = filename.lower().replace('/', '\\')
+    if not filename.startswith('scenes\\'):
+        filename = 'scenes\\' + filename
+    return cast(CRC, raw_checksum(filename.encode('ascii')))
 
 
 @attr.define
